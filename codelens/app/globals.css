@@ -1,0 +1,71 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+* {
+  border-color: theme("colors.border.DEFAULT");
+}
+
+html,
+body {
+  background-color: #0b0e14;
+  color: #e6e9ef;
+}
+
+body {
+  font-family: var(--font-body), sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background-color: rgba(94, 234, 212, 0.25);
+  color: #e6e9ef;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #232838;
+  border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #2c3244;
+}
+
+.font-mono-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* terminal-style card header dots, used across CodeLens surfaces */
+.term-dots span {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+}
+
+/* focus ring, kept visible for accessibility */
+:focus-visible {
+  outline: 2px solid #5eead4;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
