@@ -70,7 +70,14 @@ export default function ChatPage() {
 
   function handleViewSource(source: SourceReference) {
     setActiveSource(source);
-    const match = files.find((f) => f.filePath === source.filePath);
+    const normalize = (p: string) => p.replace(/^\.\//, "").toLowerCase();
+    const target = normalize(source.filePath);
+    const match =
+      files.find((f) => f.filePath === source.filePath) ??
+      files.find((f) => {
+        const fp = normalize(f.filePath);
+        return fp.endsWith(target) || target.endsWith(fp);
+      });
     setActiveFileContent(match?.content ?? "// File content not available.");
   }
 
@@ -82,6 +89,7 @@ export default function ChatPage() {
       role: "user",
       message: text,
       sources: [],
+      confident: true,
       createdAt: new Date().toISOString(),
     };
     setMessages((prev) => [...prev, userMessage]);
@@ -108,6 +116,7 @@ export default function ChatPage() {
         role: "assistant",
         message: data.answer,
         sources: data.sources ?? [],
+        confident: Boolean(data.confident),
         createdAt: new Date().toISOString(),
       };
       setMessages((prev) => [...prev, assistantMessage]);

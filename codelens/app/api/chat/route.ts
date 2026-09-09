@@ -39,6 +39,24 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "This repository hasn't been analyzed yet." }, { status: 409 });
   }
 
+  const { data: analysis } = await supabase
+    .from("analyses")
+    .select("architecture, authentication, database_information, technology_stack, dependencies_summary")
+    .eq("repository_id", repository.id)
+    .maybeSingle();
+
+  const projectSummary = analysis
+    ? [
+        analysis.architecture ? `Architecture: ${analysis.architecture}` : null,
+        analysis.authentication ? `Authentication: ${analysis.authentication}` : null,
+        analysis.database_information ? `Database: ${analysis.database_information}` : null,
+        analysis.technology_stack ? `Technology stack: ${JSON.stringify(analysis.technology_stack)}` : null,
+        analysis.dependencies_summary ? `Dependencies: ${analysis.dependencies_summary}` : null,
+      ]
+        .filter(Boolean)
+        .join("\n\n")
+    : "(no project-level analysis available)";
+
   const admin = createSupabaseAdminClient();
 
   let sessionId = payload.sessionId;
@@ -69,7 +87,7 @@ export async function POST(request: Request) {
     const chunks = await retrieveRelevantChunks(repository.id, payload.question);
     const context = formatRetrievedContext(chunks);
 
-    const raw = await answerCodebaseQuestion(payload.question, context);
+    const raw = await answerCodebaseQuestion(payload.question, context, projectSummary);
     const parsed = safeParseAIResponse(raw);
     // The model is asked to copy file paths verbatim from the retrieved
     // context, but LLMs occasionally normalize/trim them (e.g. dropping a

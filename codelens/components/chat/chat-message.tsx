@@ -53,7 +53,7 @@ export function ChatMessageBubble({
           </div>
         )}
 
-        {!isUser && message.sources.length === 0 && (
+               {!isUser && message.confident === false && (
           <div className="mt-2">
             <Badge tone="amber">Insufficient repository evidence</Badge>
           </div>

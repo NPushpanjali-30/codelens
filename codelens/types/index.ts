@@ -135,6 +135,7 @@ export interface ChatMessage {
   role: ChatRole;
   message: string;
   sources: SourceReference[];
+  confident: boolean;
   createdAt: string;
 }
 

@@ -57,7 +57,44 @@ export async function scanRepository(
   });
 
   const results: ScannedFile[] = [];
+
+  // The original entries eligible for content, in priority order — everyone
+  // else just gets metadata (path/language/size), no fetch at all.
+  const eligible = prioritized.filter((entry) => {
+    const name = fileName(entry.path);
+    const ext = extension(name);
+    const size = entry.size ?? 0;
+    const { important } = isImportantFile(entry.path);
+    return !isFileTooLarge(size) && (important || CONTENT_PRIORITY_EXTENSIONS.has(ext ?? ""));
+  });
+
+  // Fetch content with a bounded worker pool instead of one request at a
+  // time. Sequentially awaiting up to MAX_FILES_WITH_CONTENT GitHub API
+  // calls (previously ~1-2+ minutes on a large repo) was the main reason
+  // "Analyze" felt slow — this cuts it down to roughly (files / CONCURRENCY)
+  // round trips instead of one per file, while preserving the original
+  // behavior: content is fetched in priority order, and a failed fetch
+  // doesn't count against the MAX_FILES_WITH_CONTENT cap (the next eligible
+  // file is tried in its place).
+  const CONCURRENCY = 10;
+  const contentByPath = new Map<string, string>();
+  let nextIndex = 0;
   let contentFetched = 0;
+
+  async function worker() {
+    while (contentFetched < MAX_FILES_WITH_CONTENT) {
+      const i = nextIndex++;
+      if (i >= eligible.length) return;
+      const entry = eligible[i];
+      const raw = await getFileContent(token, owner, repo, entry.path, branch);
+      if (raw !== null && contentFetched < MAX_FILES_WITH_CONTENT) {
+        contentByPath.set(entry.path, containsLikelySecret(raw) ? redactSecrets(raw) : raw);
+        contentFetched += 1;
+      }
+    }
+  }
+
+  await Promise.all(Array.from({ length: Math.min(CONCURRENCY, eligible.length) }, worker));
 
   for (const entry of prioritized) {
     const name = fileName(entry.path);
@@ -66,27 +103,13 @@ export async function scanRepository(
     const size = entry.size ?? 0;
     const { important } = isImportantFile(entry.path);
 
-    const eligibleForContent =
-      contentFetched < MAX_FILES_WITH_CONTENT &&
-      !isFileTooLarge(size) &&
-      (important || CONTENT_PRIORITY_EXTENSIONS.has(ext ?? ""));
-
-    let content: string | null = null;
-    if (eligibleForContent) {
-      const raw = await getFileContent(token, owner, repo, entry.path, branch);
-      if (raw !== null) {
-        content = containsLikelySecret(raw) ? redactSecrets(raw) : raw;
-        contentFetched += 1;
-      }
-    }
-
     results.push({
       filePath: entry.path,
       fileName: name,
       extension: ext,
       language,
       fileSize: size,
-      content,
+      content: contentByPath.get(entry.path) ?? null,
       isImportant: important,
     });
   }

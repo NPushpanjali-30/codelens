@@ -93,13 +93,17 @@ ${context}`,
 }
 
 /** Answers a codebase question grounded in retrieved chunks, with citations. */
-export async function answerCodebaseQuestion(question: string, retrievedContext: string): Promise<string> {
+export async function answerCodebaseQuestion(
+  question: string,
+  retrievedContext: string,
+  projectSummary: string
+): Promise<string> {
   return callGrok(
     [
       { role: "system", content: GROUNDING_SYSTEM_PROMPT },
       {
         role: "user",
-        content: `Answer this question about the repository using ONLY the retrieved code context below. Respond with ONLY a JSON object (no markdown fences) matching this shape:
+        content: `Answer this question about the repository. You're given two sources of context: a project-level summary (produced once, from scanning the whole repository) and specific code chunks retrieved for this exact question. Respond with ONLY a JSON object (no markdown fences) matching this shape:
 {
   "answer": string,
   "relevantFiles": [{ "path": string, "reason": string }],
@@ -108,11 +112,19 @@ export async function answerCodebaseQuestion(question: string, retrievedContext:
   "confident": boolean
 }
 
-If the retrieved context does not contain enough information, set "confident" to false, set "answer" to "I could not find enough evidence in the repository to answer this confidently.", and leave "sources" empty. Never cite a file or line range that isn't present in the retrieved context below.
+How to decide "confident" and "answer":
+- If the retrieved code chunks directly answer the question, answer from them, cite them in "sources", and set "confident" to true.
+- If the retrieved code chunks are empty or irrelevant, but the project-level summary clearly settles the question either way (including a clear "this project does not use/implement X") — answer directly and specifically from the summary (e.g. "This project does not appear to implement authentication" or name the database it does use), set "confident" to true, and leave "sources" empty, since the summary has no line numbers to cite. A confident "it's not present" is a real, useful answer — don't hedge it into the generic fallback below.
+- Only if NEITHER the code chunks NOR the project-level summary give you a real basis to answer, set "confident" to false, set "answer" to "I could not find enough evidence in the repository to answer this confidently.", and leave "sources" empty.
+
+Never invent files, functions, tables, or line ranges that aren't present in the context below, and never cite a file or line range that isn't present in the retrieved code chunks.
 
 Question: ${question}
 
-Retrieved code context:
+Project-level summary:
+${projectSummary}
+
+Retrieved code chunks:
 ${retrievedContext}`,
       },
     ],
