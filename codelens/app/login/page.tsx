@@ -1,104 +1,91 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { GitBranch, Github } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input, Label } from "@/components/ui/input";
+import { useRouter, useSearchParams } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
-import toast from "react-hot-toast";
 
 export default function LoginPage() {
-  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const searchParams = useSearchParams();
+  const [error, setError] = useState<string | null>(searchParams.get("error"));
+  const router = useRouter();
+  const supabase = createSupabaseBrowserClient();
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setLoading(true);
-    try {
-      const supabase = createSupabaseBrowserClient();
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) {
-        toast.error(error.message);
-        return;
-      }
-      router.push("/dashboard");
-    } finally {
-      setLoading(false);
-    }
+  async function handleGitHubLogin() {
+    setError(null);
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "github",
+      options: {
+        redirectTo: `${window.location.origin}/api/auth/callback`,
+      },
+    });
+    if (error) setError(error.message);
   }
 
-  async function handleGithub() {
-    const supabase = createSupabaseBrowserClient();
-    await supabase.auth.signInWithOAuth({
-      provider: "github",
-      options: { redirectTo: `${window.location.origin}/api/auth/callback` },
-    });
+  async function handleEmailLogin(e: React.FormEvent) {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    setLoading(false);
+    if (error) {
+      setError(error.message);
+      return;
+    }
+    router.push("/dashboard");
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-ink px-6">
-      <div className="w-full max-w-sm">
-        <Link href="/" className="mb-8 flex items-center justify-center gap-2">
-          <div className="flex h-7 w-7 items-center justify-center rounded-md bg-signal text-ink-900">
-            <GitBranch className="h-4 w-4" strokeWidth={2.5} />
+    <main className="flex min-h-screen items-center justify-center bg-ink px-4">
+      <div className="w-full max-w-sm rounded-xl border border-border bg-surface p-6">
+        <h1 className="font-display text-lg font-semibold text-text-primary">Log in</h1>
+        <p className="mt-1 text-xs text-text-muted">Welcome back. Your repositories are where you left them.</p>
+
+        {error && (
+          <div className="mt-4 rounded-md border border-red-500/30 bg-red-500/10 p-3 text-xs text-red-400">
+            {error}
           </div>
-          <span className="font-display text-sm font-semibold">CodeLens</span>
-        </Link>
+        )}
 
-        <div className="rounded-lg border border-border bg-surface p-6">
-          <h1 className="font-display text-lg font-semibold">Log in</h1>
-          <p className="mt-1 text-xs text-text-muted">Welcome back. Your repositories are where you left them.</p>
+        <button
+          onClick={handleGitHubLogin}
+          className="mt-5 flex h-10 w-full items-center justify-center gap-2 rounded-md border border-border bg-surface-raised text-sm font-medium hover:bg-surface-hover"
+        >
+          Continue with GitHub
+        </button>
 
-          <Button variant="secondary" className="mt-5 w-full" onClick={handleGithub} type="button">
-            <Github className="h-4 w-4" />
-            Continue with GitHub
-          </Button>
-
-          <div className="my-5 flex items-center gap-3">
-            <div className="h-px flex-1 bg-border" />
-            <span className="text-[11px] text-text-dim">or</span>
-            <div className="h-px flex-1 bg-border" />
-          </div>
-
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@company.com"
-              />
-            </div>
-            <div>
-              <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-              />
-            </div>
-            <Button type="submit" className="w-full" loading={loading}>
-              Log in
-            </Button>
-          </form>
+        <div className="my-5 flex items-center gap-3 text-xs text-text-muted">
+          <div className="h-px flex-1 bg-border" /> or <div className="h-px flex-1 bg-border" />
         </div>
 
-        <p className="mt-5 text-center text-xs text-text-muted">
-          Don&apos;t have an account?{" "}
-          <Link href="/signup" className="text-signal hover:underline">
-            Sign up
-          </Link>
-        </p>
+        <form onSubmit={handleEmailLogin}>
+          <label className="block text-xs text-text-muted">Email</label>
+          <input
+            type="email"
+            required
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="you@company.com"
+            className="mt-1 h-10 w-full rounded-md border border-border bg-surface-raised px-3 text-sm outline-none focus:border-signal/50"
+          />
+          <label className="mt-4 block text-xs text-text-muted">Password</label>
+          <input
+            type="password"
+            required
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            className="mt-1 h-10 w-full rounded-md border border-border bg-surface-raised px-3 text-sm outline-none focus:border-signal/50"
+          />
+          <button
+            type="submit"
+            disabled={loading}
+            className="mt-5 h-10 w-full rounded-md bg-signal text-sm font-medium text-ink-900 hover:brightness-95"
+          >
+            {loading ? "Logging in..." : "Log in"}
+          </button>
+        </form>
       </div>
     </main>
   );

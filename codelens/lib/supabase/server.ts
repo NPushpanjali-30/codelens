@@ -1,9 +1,8 @@
-import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
 import { createClient } from "@supabase/supabase-js";
+import { cookies } from "next/headers";
 
-// Server-side Supabase client for use in Server Components, Route Handlers,
-// and Server Actions. Reads the session from cookies.
+/** Server-side client that reads/writes the logged-in user's session cookies. */
 export function createSupabaseServerClient() {
   const cookieStore = cookies();
   return createServerClient(
@@ -18,7 +17,8 @@ export function createSupabaseServerClient() {
           try {
             cookieStore.set({ name, value, ...options });
           } catch {
-            // Called from a Server Component with no request context; middleware handles refresh.
+            // Called from a Server Component context — Next.js ignores
+            // cookie writes there; middleware handles refreshing instead.
           }
         },
         remove(name: string, options: any) {
@@ -33,8 +33,7 @@ export function createSupabaseServerClient() {
   );
 }
 
-// Admin client using the service-role key. SERVER ONLY. Never import
-// this from a "use client" component or return its data unfiltered to the browser.
+/** Admin client with the service-role key — bypasses row-level security. Server-only, never expose to the browser. */
 export function createSupabaseAdminClient() {
   return createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
