@@ -2,7 +2,9 @@ import type { ScannedFile } from "@/lib/analyzer/scanner";
 import type { ParsedDependency } from "@/lib/analyzer/dependencies";
 import type { ApiRoute } from "@/types";
 
-const MAX_CONTEXT_CHARS = 60_000; // keeps a single Grok request well within a sane token budget
+// Reduced from 60_000 so a single request stays under Groq's free-tier
+// limit of 8,000 tokens per minute (~14,000 chars is roughly 3,500 tokens).
+const MAX_CONTEXT_CHARS = 14_000;
 
 /**
  * Builds a bounded, structured context string for the project-level
@@ -22,10 +24,10 @@ export function buildProjectAnalysisContext(params: {
   const readme = files.find((f) => /^readme/i.test(f.fileName));
 
   let context = `Repository: ${repoFullName}\n\n`;
-  context += `## File structure\n${truncate(structure, 6000)}\n\n`;
+  context += `## File structure\n${truncate(structure, 3000)}\n\n`;
 
   if (readme?.content) {
-    context += `## README\n${truncate(readme.content, 4000)}\n\n`;
+    context += `## README\n${truncate(readme.content, 2000)}\n\n`;
   }
 
   context += `## Dependencies\n${dependencies.map((d) => `${d.name}@${d.version} (${d.dependencyType})`).join(", ") || "none detected"}\n\n`;
@@ -35,7 +37,7 @@ export function buildProjectAnalysisContext(params: {
   context += `## Important files\n`;
   for (const file of important) {
     if (context.length > MAX_CONTEXT_CHARS) break;
-    context += `\n### ${file.filePath}\n\`\`\`\n${truncate(file.content ?? "", 2000)}\n\`\`\`\n`;
+    context += `\n### ${file.filePath}\n\`\`\`\n${truncate(file.content ?? "", 1000)}\n\`\`\`\n`;
   }
 
   return truncate(context, MAX_CONTEXT_CHARS);

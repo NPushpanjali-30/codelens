@@ -9,7 +9,10 @@ export interface RetrievedChunk {
   score: number;
 }
 
-const MAX_CHUNKS = 8;
+// Reduced from 8 to stay under Groq's free-tier token limit.
+const MAX_CHUNKS = 4;
+// Max characters of code kept per chunk when building the AI prompt.
+const MAX_CHUNK_CHARS = 1500;
 
 /**
  * Retrieval over code_chunks, three passes, each only run if the previous
@@ -85,7 +88,7 @@ export async function retrieveRelevantChunks(
     .select("chunk_text, start_line, end_line, symbol_name, repository_files(file_path)")
     .in(
       "file_id",
-      fileMatches.map((f) => f.id)
+      fileMatches.map((f: { id: string }) => f.id)
     )
     .limit(MAX_CHUNKS);
 
@@ -127,9 +130,12 @@ function extractSearchTerms(question: string): string[] {
 export function formatRetrievedContext(chunks: RetrievedChunk[]): string {
   if (chunks.length === 0) return "(no matching code found in the repository)";
   return chunks
-    .map(
-      (c) =>
-        `### ${c.filePath} (lines ${c.startLine}-${c.endLine}${c.symbolName ? `, ${c.symbolName}` : ""})\n\`\`\`\n${c.chunkText}\n\`\`\``
-    )
+    .map((c) => {
+      const code =
+        c.chunkText.length > MAX_CHUNK_CHARS
+          ? `${c.chunkText.slice(0, MAX_CHUNK_CHARS)}\n…(truncated)`
+          : c.chunkText;
+      return `### ${c.filePath} (lines ${c.startLine}-${c.endLine}${c.symbolName ? `, ${c.symbolName}` : ""})\n\`\`\`\n${code}\n\`\`\``;
+    })
     .join("\n\n");
 }
